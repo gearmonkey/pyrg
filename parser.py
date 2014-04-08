@@ -14,6 +14,8 @@ import unittest
 import requests
 from bs4 import BeautifulSoup
 
+from comment import comment
+
 
 class parser:
     def __init__(self, rg_base="http://rapgenius.com"):
@@ -25,8 +27,8 @@ class parser:
         soup = BeautifulSoup(r.content)
         return [self._parse_song_result(s) for s in soup.select(".song_list li a")]
         
-    def get_song(self, track_link):
-        r = requests.get(track_link)
+    def get_song(self, track_url):
+        r = requests.get(track_url)
         print r
         soup = BeautifulSoup(r.content)
         raw_lyrics = soup.select("div.lyrics p")[0].get_text()
@@ -41,6 +43,14 @@ class parser:
           #don't add functional phrase labels
           phrase.append(line)
         return lyrics
+    
+    def get_comment(self, comment_url, fetch_all=False):
+        #fetch page
+        #grab comment
+        
+        comment = soup.select("div#container div#main")[0].select("div.big_header")[0].fetchNextSiblings("p")[:-1]
+        return comments
+        
     
     def _parse_song_result(self, raw_song_result):
         uri = raw_song_result.get('href')
