@@ -42,7 +42,7 @@ class user:
                 self.annotations.append(comment(rg_id=annotation_id, text=annotation_content, song=song_link))
             pagination_block = soup.find("div", attrs={"class":"pagination"})
             try:
-                next_page = pagination_block.select(".next_page")[0].get('href') #if last page this gives None
+                next_page = pagination_block.find(attrs={'class':"next_page"}).get('href') #if last page this gives None
                 if next_page != None:
                     next_page = self.host + next_page
             except AttributeError, err:
