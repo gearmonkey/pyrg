@@ -55,9 +55,6 @@ def fetch_user_sets(curs, max_id):
     return users_remaining, collected_users
 
 def store(curs, this_user):
-    print curs.mogrify("""WITH upsert AS (UPDATE users SET username = %(name)s WHERE id = %(id)s RETURNING *) 
-                    INSERT INTO users (id, username) SELECT %(id)s,%(name)s WHERE NOT EXISTS (SELECT * FROM upsert)""", 
-                 {'id': this_user.rg_id, 'name': this_user.login})
     ####these all need to be upserts###
     curs.execute("""WITH upsert AS (UPDATE users SET username = %(name)s WHERE id = %(id)s RETURNING *) 
                     INSERT INTO users (id, username) SELECT %(id)s,%(name)s WHERE NOT EXISTS (SELECT * FROM upsert)""", 
