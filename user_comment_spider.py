@@ -10,66 +10,100 @@ will randomly select a user, and collect all comments from that user.
 will stash both users and comments (but not song lyrics, only song urls) in the db
 
 does not grab song lyrics or contribution percentages yet, to minimize calls.
+
+need to fetch full history, which for each comment can be found at /annotations/(anno_id)/history
 """
 
 import sys, os
 import random
-import sqlite3
+import psycopg2
 from user import user
 
-def create_or_open_db(db_file_path):
-	"setup the db connection, if needed create the tables"
-	#close and reopen to deal with known if not exists bug
-	with sqlite3.connect(db_file_path) as conn:
-		curs = conn.cursor()
-		curs.execute("""CREATE TABLE IF NOT EXISTS 'users' (id BIGINT,
-															username TEXT)""")
-		curs.execute("""CREATE TABLE IF NOT EXISTS 'annotation' (id BIGINT,
-																song_id TEXT,
-																comment TEXT)""")
-		curs.execute("""CREATE TABLE IF NOT EXISTS 'user_contributed_annotation' (user_id BIGINT,
-																				  annotation_id TEXT,
-																				  score REAL)""")
-		conn.commit()
-	conn = sqlite3.connect(db_file_path)
-	curs = conn.cursor()
-	return conn, curs
-
+def create_or_open_db(connection_str="postgresql://rg:rg@localhost/genius"):
+    "setup the db connection, if needed create the tables"
+    #close and reopen to deal with known if not exists bug
+    with psycopg2.connect(connection_str) as conn:
+        curs = conn.cursor()
+        curs.execute("""CREATE TABLE IF NOT EXISTS 'users' (id BIGINT PRIMARY KEY,
+                                                            username TEXT)""")
+        curs.execute("""CREATE TABLE IF NOT EXISTS 'annotation' (id BIGINT PRIMARY KEY,
+                                                                song_id TEXT,
+                                                                comment TEXT)""")
+        curs.execute("""CREATE TABLE IF NOT EXISTS 'user_contributed_annotation' (user_id BIGINT,
+                                                                                  annotation_id TEXT,
+                                                                                  score REAL,
+                                                                                  CONSTRAINT contrib PRIMARY KEY (user_id, annotation_id))""")
+        curs.execute("""CREATE TABLE IF NOT EXISTS 'annotation_history' (annotation_id BIGINT,
+                                                                         datetimestamp TIMESTAMP,
+                                                                         username TEXT,
+                                                                         comment TEXT,
+                                                                         CONSTRAINT entry PRIMARY KEY (annotation_id, datetimestamp))""")
+        conn.commit()
+    conn = psycopg2.connect(connection_str)
+    curs = conn.cursor()
+    return conn, curs
 
 def known_users(curs):
-	"fetch the list of stored user_ids"
-	curs.execute("""SELECT id FROM users""")
-	return curs.fetchall()
+    "fetch the list of stored user_ids"
+    curs.execute("""SELECT id FROM users""")
+    return curs.fetchall()
+
+def fetch_user_sets(curs, max_id):
+    "gather user_sets"
+    collected_users = known_users(curs)
+    users_remaining = set(range(1, max_id)) - set(collected_users)
+    return users_remaining, collected_users
 
 def store(curs, this_user):
-	curs.execute('INSERT INTO users (id, username) VALUES (?,?)', 
-		         (this_user.rg_id, this_user.login))
-	#insert comments
-	curs.executemany('INSERT INTO annotation (id, song_id, comment) VALUES (?,?,?)', 
-					 [(a.rg_id, a.song_link, a.text) for a in this_user.annotations])
-	#tie comments to user
-	curs.executemany('INSERT INTO user_contributed_annotation (user_id, annotation_id) VALUES (?,?)',
-			     	[(this_user.rg_id, a.rg_id) for a in this_user.annotations])
+    ####these all need to be upserts###
+    curs.execute("""WITH upsert AS (UPDATE users SET name = %(name)s WHERE id = %(id)s RETURNING *) 
+                    INSERT INTO users (id, username) VALUES (%(id)s,%(name)s) WHERE NOT EXISTS (SELECT * FROM upsert)""", 
+                 {'id': this_user.rg_id, 'name': this_user.login})
+    #insert comments
+    curs.executemany("""WITH upsert AS (UPDATE annotation 
+                                            SET song_id = %(song_link)s, comment = %(comment)s 
+                                            WHERE id = %(id)s RETURNING *) 
+                        INSERT INTO annotation (id, song_id, comment) VALUES (%(id)s, %(song_link)s, %(comment)s) WHERE NOT EXISTS (SELECT * FROM upsert)""", 
+                     [{'id': a.rg_id,'song_link': a.song_link,'comment': a.text} for a in this_user.annotations])
+    #tie comments to user
+    curs.executemany("""WITH upsert AS (UPDATE user_contributed_annotation 
+                                            SET user_id = %(user_id)s 
+                                            WHERE annotation_id = %(annotation_id)s RETURNING *) 
+                        INSERT INTO user_contributed_annotation (user_id, annotation_id) 
+                            VALUES (%(user_id)s, %(annotation_id)s) WHERE NOT EXISTS (SELECT * FROM upsert)""",
+                    [{'user_id':this_user.rg_id, 'annotation_id': a.rg_id} for a in this_user.annotations])
+    #edit history
+    for annotation in this_user.annotations:
+        curs.executemany("""WITH upsert AS (UPDATE user_contributed_annotation 
+                                                SET username = %(username)s, comment = %(comment)s 
+                                                WHERE annotation_id = %(annotation_id)s AND datetimestamp = %(datetimestamp)s RETURNING *) 
+                            INSERT INTO annotation_history (annotation_id, username, datetimestamp, comment) 
+                                VALUES (%(annotation_id)s, %(username)s, %(datetimestamp)s, %(comment)s) WHERE NOT EXISTS (SELECT * FROM upsert)""",
+                        [{'annotation_id':annotation.rg_id, 'username':a[0], 'datetimestamp':a[1], 'comment':a[2]} for a in annotation.history])
 
 def main(argv=sys.argv):
-	max_id, db_file_path = argv[-2:]
-	max_id = int(max_id)
-	conn, curs = create_or_open_db(db_file_path)
-	collected_users = known_users(curs)
-	users_remaining = set(range(1, max_id)) - set(collected_users)
-	while len(users_remaining) < max_id:
-		this_id = random.sample(users_remaining, 1)[0]
-		print "fetching contributions for user", this_id
-		this_user = user(rg_id=this_id)
-		this_user.get_annotations()
-		print "\tuser has", len(this_user.annotations), "annotations, storing..."
-		store(curs, this_user)
-		conn.commit()
-		users_remaining.remove(this_id)
-		collected_users.append(this_id)
+    max_id, db_file_path = argv[-2:]
+    max_id = int(max_id)
+    conn, curs = create_or_open_db(db_file_path)
+    users_remaining, collected_users = fetch_user_sets(curs, max_id)
+    sync_count = 0
+    while len(users_remaining) < max_id:
+        this_id = random.sample(users_remaining, 1)[0]
+        print "fetching contributions for user", this_id
+        this_user = user(rg_id=this_id)
+        this_user.get_annotations()
+        print "\tuser has", len(this_user.annotations), "annotations, storing..."
+        store(curs, this_user)
+        conn.commit()
+        users_remaining.remove(this_id)
+        collected_users.append(this_id)
+        sync_count += 1
+        if sync_count == 100:
+            users_remaining, collected_users = fetch_user_sets(curs, max_id)
+            sync_count = 0
 
 
 
 
 if __name__ == '__main__':
-	sys.exit(main())
+    sys.exit(main())

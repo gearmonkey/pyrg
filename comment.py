@@ -23,7 +23,7 @@ class comment:
         self.links = links
         self.contributors = contributors
         self.song_link = song
-    
+
     def get_contributors(self, url='http://rapgenius.com/annotations/full_credits?annotation_id={anno_id}'):
         '''fetches conntributers and the strength of their contributions'''
         r = requests.get(url.format(anno_id=self.rg_id))
@@ -36,7 +36,19 @@ class comment:
             perc_contribution = self._get_contribution(user)
             self.contributors.append((user_id, user_name, perc_contribution))
 
-            
+    def get_full_history(self, url = "http://genius.com/annotations/{anno_id}/history"):
+        """fetches the history of the comment with attribution and timestamps, 
+        can optionally generate and store diffs instead of the native complete comment"""
+        r = requests.get(url.format(anno_id=self.rg_id))
+        soup = BeautifulSoup(r.content)
+        
+        self.history = []
+        for entry in soup.select("div.annotation_version"):
+            user_name = ""
+            time_of_change = entry.p.b.span.attrs['data-timeago']
+            body = entry.div.text
+            self.history.append((user_name, time_of_change, body))
+
     def _get_contribution(self, user):
         '''parse out the contribution as a percentage for the user associated with the passed in soup'''
         css_regex = re.compile('width: (\d*?)\%')

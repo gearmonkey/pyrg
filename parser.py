@@ -35,13 +35,13 @@ class parser:
         lyrics = []
         phrase = []
         for line in raw_lyrics.split('\n'):
-        if len(line) == 0 and len(phrase) > 0:
-          lyrics.append(phrase)
-          phrase = []
-          continue
-        if len(line) > 0 and line[0] != '[':
-          #don't add functional phrase labels
-          phrase.append(line)
+            if len(line) == 0 and len(phrase) > 0:
+              lyrics.append(phrase)
+              phrase = []
+              continue
+            if len(line) > 0 and line[0] != '[':
+              #don't add functional phrase labels
+              phrase.append(line)
         return lyrics
     
     def get_comment(self, comment_url, fetch_all=False):
