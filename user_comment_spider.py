@@ -24,16 +24,16 @@ def create_or_open_db(connection_str="postgresql://rg:rg@localhost/genius"):
     #close and reopen to deal with known if not exists bug
     with psycopg2.connect(connection_str) as conn:
         curs = conn.cursor()
-        curs.execute("""CREATE TABLE IF NOT EXISTS 'users' (id BIGINT PRIMARY KEY,
+        curs.execute("""CREATE TABLE IF NOT EXISTS users (id INT PRIMARY KEY,
                                                             username TEXT)""")
-        curs.execute("""CREATE TABLE IF NOT EXISTS 'annotation' (id BIGINT PRIMARY KEY,
+        curs.execute("""CREATE TABLE IF NOT EXISTS annotation (id BIGINT PRIMARY KEY,
                                                                 song_id TEXT,
                                                                 comment TEXT)""")
-        curs.execute("""CREATE TABLE IF NOT EXISTS 'user_contributed_annotation' (user_id BIGINT,
+        curs.execute("""CREATE TABLE IF NOT EXISTS user_contributed_annotation (user_id BIGINT,
                                                                                   annotation_id TEXT,
                                                                                   score REAL,
                                                                                   CONSTRAINT contrib PRIMARY KEY (user_id, annotation_id))""")
-        curs.execute("""CREATE TABLE IF NOT EXISTS 'annotation_history' (annotation_id BIGINT,
+        curs.execute("""CREATE TABLE IF NOT EXISTS annotation_history (annotation_id BIGINT,
                                                                          datetimestamp TIMESTAMP,
                                                                          username TEXT,
                                                                          comment TEXT,
@@ -55,22 +55,25 @@ def fetch_user_sets(curs, max_id):
     return users_remaining, collected_users
 
 def store(curs, this_user):
+    print curs.mogrify("""WITH upsert AS (UPDATE users SET username = %(name)s WHERE id = %(id)s RETURNING *) 
+                    INSERT INTO users (id, username) SELECT %(id)s,%(name)s WHERE NOT EXISTS (SELECT * FROM upsert)""", 
+                 {'id': this_user.rg_id, 'name': this_user.login})
     ####these all need to be upserts###
-    curs.execute("""WITH upsert AS (UPDATE users SET name = %(name)s WHERE id = %(id)s RETURNING *) 
-                    INSERT INTO users (id, username) VALUES (%(id)s,%(name)s) WHERE NOT EXISTS (SELECT * FROM upsert)""", 
+    curs.execute("""WITH upsert AS (UPDATE users SET username = %(name)s WHERE id = %(id)s RETURNING *) 
+                    INSERT INTO users (id, username) SELECT %(id)s,%(name)s WHERE NOT EXISTS (SELECT * FROM upsert)""", 
                  {'id': this_user.rg_id, 'name': this_user.login})
     #insert comments
     curs.executemany("""WITH upsert AS (UPDATE annotation 
                                             SET song_id = %(song_link)s, comment = %(comment)s 
                                             WHERE id = %(id)s RETURNING *) 
-                        INSERT INTO annotation (id, song_id, comment) VALUES (%(id)s, %(song_link)s, %(comment)s) WHERE NOT EXISTS (SELECT * FROM upsert)""", 
+                        INSERT INTO annotation (id, song_id, comment) SELECT %(id)s, %(song_link)s, %(comment)s WHERE NOT EXISTS (SELECT * FROM upsert)""", 
                      [{'id': a.rg_id,'song_link': a.song_link,'comment': a.text} for a in this_user.annotations])
     #tie comments to user
     curs.executemany("""WITH upsert AS (UPDATE user_contributed_annotation 
                                             SET user_id = %(user_id)s 
                                             WHERE annotation_id = %(annotation_id)s RETURNING *) 
                         INSERT INTO user_contributed_annotation (user_id, annotation_id) 
-                            VALUES (%(user_id)s, %(annotation_id)s) WHERE NOT EXISTS (SELECT * FROM upsert)""",
+                            SELECT %(user_id)s, %(annotation_id)s WHERE NOT EXISTS (SELECT * FROM upsert)""",
                     [{'user_id':this_user.rg_id, 'annotation_id': a.rg_id} for a in this_user.annotations])
     #edit history
     for annotation in this_user.annotations:
@@ -78,13 +81,13 @@ def store(curs, this_user):
                                                 SET username = %(username)s, comment = %(comment)s 
                                                 WHERE annotation_id = %(annotation_id)s AND datetimestamp = %(datetimestamp)s RETURNING *) 
                             INSERT INTO annotation_history (annotation_id, username, datetimestamp, comment) 
-                                VALUES (%(annotation_id)s, %(username)s, %(datetimestamp)s, %(comment)s) WHERE NOT EXISTS (SELECT * FROM upsert)""",
+                                SELECT %(annotation_id)s, %(username)s, %(datetimestamp)s, %(comment)s WHERE NOT EXISTS (SELECT * FROM upsert)""",
                         [{'annotation_id':annotation.rg_id, 'username':a[0], 'datetimestamp':a[1], 'comment':a[2]} for a in annotation.history])
 
 def main(argv=sys.argv):
-    max_id, db_file_path = argv[-2:]
+    max_id = argv[-1]
     max_id = int(max_id)
-    conn, curs = create_or_open_db(db_file_path)
+    conn, curs = create_or_open_db()
     users_remaining, collected_users = fetch_user_sets(curs, max_id)
     sync_count = 0
     while len(users_remaining) < max_id:

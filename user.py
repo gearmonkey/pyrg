@@ -30,6 +30,18 @@ class user:
             print next_page
             r = requests.get(next_page)
             soup = BeautifulSoup(r.content)
+            if self.login == None:
+                #if we don't have the login, attempt to scrap it here
+                try:
+                    #this works if there are no annotations
+                    self.login = soup.select(".empty_message")[0].text.strip().replace(u" hasn't annotated any lines!", '')
+                except IndexError:
+                    try:
+                        #this should work if there are annotations (maybe there are other a classes for some users, but I can't find any)
+                        self.login = soup.select('div.annotation_unit_label a.community_contributor')[0].text
+                    except IndexError:
+                        pass
+                            
             for annotation in soup.select("div.annotation_unit"):
                 annotation_id = annotation.get('data-id')
                 print "id:", annotation_id
