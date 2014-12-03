@@ -16,7 +16,7 @@ import re
 from bs4 import BeautifulSoup
 
 
-class comment:
+class comment(object):
     def __init__(self, rg_id=None, text=None, links=[], contributors=[], song=None):
         self.rg_id = rg_id
         self.text = text
@@ -61,7 +61,7 @@ class comment:
 
     def _get_userid(self, user):
         '''extract the user id from the user block'''
-        return u.get('data-id')
+        return user.get('data-id')
 
 
 class commentTests(unittest.TestCase):
