@@ -40,23 +40,28 @@ class user:
                         #this should work if there are annotations (maybe there are other a classes for some users, but I can't find any)
                         self.login = soup.select('div.annotation_unit_label a.community_contributor')[0].text
                     except IndexError:
-                        pass
-                            
-            for annotation in soup.select("div.annotation_unit"):
-                annotation_id = annotation.get('data-id')
+                        try:
+                            #this one is for staff
+                            self.login = soup.select('div.annotation_unit a.login')[0].attrs['href'].split('/')[-1]
+                        except IndexError:
+                            #giving up
+                            pass
+            for annotation in soup.select("div.stand_alone_annotation_container"):
+                annotation_id = annotation.select("div.annotation_unit")[0].get("data-id")  
                 # print "id:", annotation_id
                 annotation_content = annotation.find(attrs={'class':'annotation_body'}).text
                 try:
-                    song_link = annotation.find('a', attrs={'class':'song_link'}).get('href')
+                    song_link = annotation.find('a', attrs={'class':'title'}).get('href')
                 except AttributeError:
                     #alt rendering puts it in a prior div, try there.
                     try:
-                        song_link = annotation.findPrevious('div', attrs={'class':'stand_alone_referent'}).find('a', attrs={'class':'song_link'}).get('href')
+                        song_link = annotation.findPrevious('div', attrs={'class':'stand_alone_referent'}).find('a', attrs={'class':'title'}).get('href')
                     except:
                         #print the annotation id and give up
                         print "**couldn't grab annotation", annotation_id,"from user", self.rg_id, "moving on"
                         continue
                 self.annotations.append(comment(rg_id=annotation_id, text=annotation_content, song=song_link))
+                self.annotations[-1].get_full_history()
             pagination_block = soup.find("div", attrs={"class":"pagination"})
             try:
                 next_page = pagination_block.find(attrs={'class':"next_page"}).get('href') #if last page this gives None

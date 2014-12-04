@@ -44,7 +44,7 @@ class comment(object):
         
         self.history = []
         for entry in soup.select("div.annotation_version"):
-            user_name = ""
+            user_name = entry.p.b.strings.next().strip().replace('Updated by ', '')
             time_of_change = entry.p.b.span.attrs['data-timeago']
             body = entry.div.text
             self.history.append((user_name, time_of_change, body))
