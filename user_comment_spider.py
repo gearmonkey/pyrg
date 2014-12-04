@@ -19,7 +19,9 @@ import random
 import psycopg2
 from user import user
 
-def create_or_open_db(connection_str="postgresql://rg:rg@localhost/genius"):
+# using this bit of magic to tunnel:
+# ssh -M -S my-ctrl-socket -fnNT -L 63333:localhost:5432 rg@<host db address>
+def create_or_open_db(connection_str="postgresql://rg:rg@localhost:63333/genius"):
     "setup the db connection, if needed create the tables"
     #close and reopen to deal with known if not exists bug
     with psycopg2.connect(connection_str) as conn:
