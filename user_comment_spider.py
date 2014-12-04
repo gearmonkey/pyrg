@@ -34,10 +34,10 @@ def create_or_open_db(connection_str="postgresql://rg:rg@localhost/genius"):
                                                                                   score REAL,
                                                                                   CONSTRAINT contrib PRIMARY KEY (user_id, annotation_id))""")
         curs.execute("""CREATE TABLE IF NOT EXISTS annotation_history (annotation_id BIGINT,
-                                                                         datetimestamp TIMESTAMP,
+                                                                         entry_time TIMESTAMP,
                                                                          username TEXT,
                                                                          comment TEXT,
-                                                                         CONSTRAINT entry PRIMARY KEY (annotation_id, datetimestamp))""")
+                                                                         CONSTRAINT entry PRIMARY KEY (annotation_id, entry_time))""")
         conn.commit()
     conn = psycopg2.connect(connection_str)
     curs = conn.cursor()
@@ -74,12 +74,12 @@ def store(curs, this_user):
                     [{'user_id':this_user.rg_id, 'annotation_id': a.rg_id} for a in this_user.annotations])
     #edit history
     for annotation in this_user.annotations:
-        curs.executemany("""WITH upsert AS (UPDATE user_contributed_annotation 
+        curs.executemany("""WITH upsert AS (UPDATE annotation_history 
                                                 SET username = %(username)s, comment = %(comment)s 
-                                                WHERE annotation_id = %(annotation_id)s AND datetimestamp = %(datetimestamp)s RETURNING *) 
-                            INSERT INTO annotation_history (annotation_id, username, datetimestamp, comment) 
-                                SELECT %(annotation_id)s, %(username)s, %(datetimestamp)s, %(comment)s WHERE NOT EXISTS (SELECT * FROM upsert)""",
-                        [{'annotation_id':annotation.rg_id, 'username':a[0], 'datetimestamp':a[1], 'comment':a[2]} for a in annotation.history])
+                                                WHERE annotation_id = %(annotation_id)s AND entry_time = %(entry_time)s RETURNING *) 
+                            INSERT INTO annotation_history (annotation_id, username, entry_time, comment) 
+                                SELECT %(annotation_id)s, %(username)s, %(entry_time)s, %(comment)s WHERE NOT EXISTS (SELECT * FROM upsert)""",
+                        [{'annotation_id':annotation.rg_id, 'username':a[0], 'entry_time':a[1], 'comment':a[2]} for a in annotation.history])
 
 def main(argv=sys.argv):
     max_id = argv[-1]
