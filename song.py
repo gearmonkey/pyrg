@@ -15,7 +15,7 @@ import logging
 from bs4 import BeautifulSoup
 
 
-class song:
+class song(object):
     def __init__(self, rg_url=None, rg_id=None, retrieve_metadata=False):
         self.host = "http://genius.com"
         self.rg_url = rg_url
@@ -39,7 +39,7 @@ class song:
             return repr(self)
 
     def get_metadata(self):
-        '''Collect the annotations of the user, is cap is given, only collect the most recent ones, otherwise fetch all (requires <Number of annotations>/10 calls)'''
+        '''Collect metadata for a song'''
         if self.rg_url != None:
             page = self.host + self.rg_url
         elif self.rg_id != None:
@@ -50,40 +50,40 @@ class song:
             try:
                 self.rg_id = soup.find('meta', attrs={"property":"twitter:app:url:iphone"})['content'].split('/')[-1]
             except Exception, err:
-                logging.warning('unable to scrape id for %s.Msg: %s'%(page, err))
+                logging.warning('unable to scrape id for %s.Msg: %s', page, err)
         if self.rg_url == None:
             try:
                 self.rg_url = soup.find('meta', attrs={"property":"og:url"})['content']
             except Exception, err:
-                logging.warning('unable to scrape url for %s.Msg: %s'%(page, err))
+                logging.warning('unable to scrape url for %s.Msg: %s', page, err)
         try:
             self.category = soup.find('div', id="beefy_header")['class'][0]
         except Exception, err:
-            logging.warning('unable to scrape category for %s.Msg: %s'%(page, err))
+            logging.warning('unable to scrape category for %s.Msg: %s', page, err)
         try:
             self.tags = map(lambda t:(t.text, t['href']), soup.select('p.tags a'))
         except Exception, err:
-            logging.warning('unable to scrape tags for %s.Msg: %s'%(page, err))
+            logging.warning('unable to scrape tags for %s.Msg: %s', page, err)
         try:
             self.title = soup.find('span', class_='text_title').text.strip()
         except Exception, err:
-            logging.warning('unable to scrape title for %s.Msg: %s'%(page, err))
+            logging.warning('unable to scrape title for %s.Msg: %s', page, err)
         try:
             self.artist = soup.find('span', class_='text_artist').text.strip()
         except Exception, err:
-            logging.warning('unable to scrape artist name for %s.Msg: %s'%(page, err))
+            logging.warning('unable to scrape artist name for %s.Msg: %s', page, err)
         try:
             self.document_type = soup.find('span', class_='text_type').text.strip()
         except Exception, err:
-            logging.warning('unable to scrape doc type for %s.Msg: %s'%(page, err))
+            logging.warning('unable to scrape doc type for %s.Msg: %s', page, err)
         try:
             self.featuring = map(lambda a:(a.text, a['href']), soup.select('span.featured_artists a'))
         except Exception, err:
-            logging.warning('unable to scrape featured artists for %s.Msg: %s'%(page, err))
+            logging.warning('unable to scrape featured artists for %s.Msg: %s', page, err)
         try:
             self.producers = map(lambda a:(a.text, a['href']), soup.select('span.producer_artists a'))
         except Exception, err:
-            logging.warning('unable to scrape producers for %s.Msg: %s'%(page, err))
+            logging.warning('unable to scrape producers for %s.Msg: %s', page, err)
 
 
 class userTests(unittest.TestCase):
