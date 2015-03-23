@@ -20,7 +20,7 @@ import psycopg2
 from user import user
 
 # using this bit of magic to tunnel:
-# ssh -M -S my-ctrl-socket -fnNT -L 63333:localhost:5432 rg@<host db address>
+# ssh -M -S my-ctrl-socket -fnNT -L 63333:localhost:5432 rg@<host db address>   
 def create_or_open_db(connection_str="postgresql://rg:rg@localhost:63333/genius"):
     "setup the db connection, if needed create the tables"
     #close and reopen to deal with known if not exists bug
@@ -57,7 +57,7 @@ def fetch_user_sets(curs, max_id):
     return users_remaining, collected_users
 
 def store(curs, this_user):
-    ####these all need to be upserts###
+    #insert users
     curs.execute("""WITH upsert AS (UPDATE users SET username = %(name)s WHERE id = %(id)s RETURNING *) 
                     INSERT INTO users (id, username) SELECT %(id)s,%(name)s WHERE NOT EXISTS (SELECT * FROM upsert)""", 
                  {'id': this_user.rg_id, 'name': this_user.login})
