@@ -32,6 +32,12 @@ class song:
         if retrieve_metadata:
             self.get_metadata()
 
+    def __str__(self):
+        if self.artist != None and self.title != None:
+            return "%s by %s"%(self.title, self.artist)
+        else:
+            return repr(self)
+
     def get_metadata(self):
         '''Collect the annotations of the user, is cap is given, only collect the most recent ones, otherwise fetch all (requires <Number of annotations>/10 calls)'''
         if self.rg_url != None:
@@ -40,6 +46,16 @@ class song:
             page = self.host+'/songs/'+self.rg_id
         r = requests.get(page)
         soup = BeautifulSoup(r.content)
+        if self.rg_id == None:
+            try:
+                self.rg_id = soup.find('meta', attrs={"property":"twitter:app:url:iphone"})['content'].split('/')[-1]
+            except Exception, err:
+                logging.warning('unable to scrape id for %s.Msg: %s'%(page, err))
+        if self.rg_url == None:
+            try:
+                self.rg_url = soup.find('meta', attrs={"property":"og:url"})['content']
+            except Exception, err:
+                logging.warning('unable to scrape url for %s.Msg: %s'%(page, err))
         try:
             self.category = soup.find('div', id="beefy_header")['class'][0]
         except Exception, err:
