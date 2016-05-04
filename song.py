@@ -29,6 +29,8 @@ class song(object):
         self.document_type = None
         self.featuring = None
         self.producers = None
+        self.lyrics = None
+        self.annotations = []
         if retrieve_metadata:
             self.get_metadata()
 
@@ -84,7 +86,16 @@ class song(object):
             self.producers = map(lambda a:(a.text, a['href']), soup.find("additional-artists", attrs={'label':'Produced By'}).find_all('a'))
         except Exception, err:
             logging.warning('unable to scrape producers for %s.Msg: %s', page, err)
-
+        try:
+            self.lyrics = soup.select("div.song_body-lyrics")[0].lyrics.text
+        except Exception, err:
+            logging.warning('unable to scrape lyrics for %s.Msg: %s', page, err)
+        try:
+            #note that this only grabs the annotation id and referent text
+            #getting the annotation body/author/history would require more calls
+            self.annotations = map(lambda a:(a.attrs['data-id'], a.text), soup.select("div.song_body-lyrics")[0].find_all('a', class_="referent"))
+        except Exception, err:
+            logging.warning('unable to scrape annotation list for %s.Msg: %s', page, err)
 
 class userTests(unittest.TestCase):
     def setUp(self):

@@ -17,7 +17,7 @@ from bs4 import BeautifulSoup
 
 class user:
     def __init__(self, rg_id=None, login=None, photo=None):
-        self.host = "http://rapgenius.com"
+        self.host = "http://genius.com"
         self.rg_id = rg_id
         self.login = login
         self.photo = photo
@@ -47,7 +47,7 @@ class user:
                             #giving up
                             pass
             for annotation in soup.select("div.stand_alone_annotation_container"):
-                annotation_id = annotation.select("div.annotation_unit")[0].get("data-id")  
+                annotation_id = annotation.select("div.annotation_unit")[0].get("data-id")
                 # print "id:", annotation_id
                 annotation_content = annotation.find(attrs={'class':'annotation_body'}).text
                 try:
@@ -70,7 +70,7 @@ class user:
             except AttributeError, err:
                 #if we're here, there's no pagination block, due to exactly one page of annons, so, done.
                 next_page = None
-                
+
 
 
 class userTests(unittest.TestCase):

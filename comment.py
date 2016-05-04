@@ -24,7 +24,7 @@ class comment(object):
         self.contributors = contributors
         self.song_link = song
 
-    def get_contributors(self, url='http://rapgenius.com/annotations/full_credits?annotation_id={anno_id}'):
+    def get_contributors(self, url='http://genius.com/annotations/full_credits?annotation_id={anno_id}'):
         '''fetches conntributers and the strength of their contributions'''
         r = requests.get(url.format(anno_id=self.rg_id))
         soup = BeautifulSoup(r.content)
@@ -37,11 +37,11 @@ class comment(object):
             self.contributors.append((user_id, user_name, perc_contribution))
 
     def get_full_history(self, url = "http://genius.com/annotations/{anno_id}/history"):
-        """fetches the history of the comment with attribution and timestamps, 
+        """fetches the history of the comment with attribution and timestamps,
         can optionally generate and store diffs instead of the native complete comment"""
         r = requests.get(url.format(anno_id=self.rg_id))
         soup = BeautifulSoup(r.content)
-        
+
         self.history = []
         for entry in soup.select("div.annotation_version"):
             user_name = entry.p.b.strings.next().strip().replace('Updated by ', '')
