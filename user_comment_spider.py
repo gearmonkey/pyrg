@@ -97,7 +97,7 @@ def main(argv=sys.argv):
     conn, curs = create_or_open_db()
     users_remaining, some_users = fetch_N_unseen_users(curs, max_id, 100)
     while users_remaining > 0:
-        for this_id in some_users:
+        for (this_id,) in some_users:
             print "fetching contributions for user", this_id
             this_user = user(rg_id=this_id)
             this_user.get_annotations()
