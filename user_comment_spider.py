@@ -95,8 +95,9 @@ def main(argv=sys.argv):
     max_id = argv[-1]
     max_id = int(max_id)
     conn, curs = create_or_open_db()
-    users_remaining, some_users = fetch_N_unseen_users(curs, max_id, 100)
+    users_remaining = 1
     while users_remaining > 0:
+        users_remaining, some_users = fetch_N_unseen_users(curs, max_id, 100)
         for (this_id,) in some_users:
             print "fetching contributions for user", this_id
             this_user = user(rg_id=this_id)
@@ -104,10 +105,6 @@ def main(argv=sys.argv):
             print "\tuser has", len(this_user.annotations), "annotations, storing..."
             store(curs, this_user)
             conn.commit()
-            # users_remaining.remove(this_id)
-            # collected_users.append(this_id)
-
-        users_remaining, collected_users = fetch_N_unseen_users(curs, max_id, 100)
 
 
 
