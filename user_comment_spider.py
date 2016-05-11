@@ -56,7 +56,7 @@ def fetch_N_unseen_users(curs, max_id, n, presample=10000):
     users_to_visit = curs.fetchall()
     curs.execute("""select count(*) from users""")
     users_remaining = max_id - int(curs.fetchone()[0])
-    return users_to_visit, users_remaining
+    return users_remaining, users_to_visit
 
 def fetch_user_sets(curs, max_id):
     "gather user_sets"
@@ -96,8 +96,8 @@ def main(argv=sys.argv):
     max_id = int(max_id)
     conn, curs = create_or_open_db()
     users_remaining, some_users = fetch_N_unseen_users(curs, max_id, 100)
-    while len(users_remaining) < 0:
-        for (this_id,) in some_users:
+    while users_remaining > 0:
+        for this_id in some_users:
             print "fetching contributions for user", this_id
             this_user = user(rg_id=this_id)
             this_user.get_annotations()
