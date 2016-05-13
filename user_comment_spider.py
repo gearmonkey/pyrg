@@ -66,29 +66,25 @@ def fetch_user_sets(curs, max_id):
 
 def store(curs, this_user):
     #insert users
-    curs.execute("""WITH upsert AS (UPDATE users SET username = %(name)s WHERE id = %(id)s RETURNING *)
-                    INSERT INTO users (id, username) SELECT %(id)s,%(name)s WHERE NOT EXISTS (SELECT * FROM upsert)""",
+    curs.execute("""INSERT INTO users (id, username)
+                       VALUES (%(id)s,%(name)s)
+                       ON CONFLICT (id) DO UPDATE users SET username = %(name)s""",
                  {'id': this_user.rg_id, 'name': this_user.login})
     #insert comments
-    curs.executemany("""WITH upsert AS (UPDATE annotation
-                                            SET song_id = %(song_link)s, comment = %(comment)s
-                                            WHERE id = %(id)s RETURNING *)
-                        INSERT INTO annotation (id, song_id, comment) SELECT %(id)s, %(song_link)s, %(comment)s WHERE NOT EXISTS (SELECT * FROM upsert)""",
+    curs.executemany("""INSERT INTO annotation (id, song_id, comment)
+                           VALUES (%(id)s, %(song_link)s, %(comment)s)
+                           ON CONFLICT (id) DO UPDATE annotation SET song_id = %(song_link)s, comment = %(comment)s""",
                      [{'id': a.rg_id,'song_link': a.song_link,'comment': a.text} for a in this_user.annotations])
     #tie comments to user
-    curs.executemany("""WITH upsert AS (UPDATE user_contributed_annotation
-                                            SET user_id = %(user_id)s
-                                            WHERE annotation_id = %(annotation_id)s RETURNING *)
-                        INSERT INTO user_contributed_annotation (user_id, annotation_id)
-                            SELECT %(user_id)s, %(annotation_id)s WHERE NOT EXISTS (SELECT * FROM upsert)""",
+    curs.executemany("""INSERT INTO user_contributed_annotation (user_id, annotation_id)
+                            VALUES (%(user_id)s, %(annotation_id)s)
+                            ON CONFLICT (contrib) DO NOTHING""",
                     [{'user_id':this_user.rg_id, 'annotation_id': a.rg_id} for a in this_user.annotations])
     #edit history
     for annotation in this_user.annotations:
-        curs.executemany("""WITH upsert AS (UPDATE annotation_history
-                                                SET username = %(username)s, comment = %(comment)s
-                                                WHERE annotation_id = %(annotation_id)s AND entry_time = %(entry_time)s RETURNING *)
-                            INSERT INTO annotation_history (annotation_id, username, entry_time, comment)
-                                SELECT %(annotation_id)s, %(username)s, %(entry_time)s, %(comment)s WHERE NOT EXISTS (SELECT * FROM upsert)""",
+        curs.executemany("""INSERT INTO annotation_history (annotation_id, username, entry_time, comment)
+                                VALUES (%(annotation_id)s, %(username)s, %(entry_time)s, %(comment)s)
+                                ON CONFLICT (entry) DO UPDATE annotation_history SET username = %(username)s, comment = %(comment)s""",
                         [{'annotation_id':annotation.rg_id, 'username':a[0], 'entry_time':a[1], 'comment':a[2]} for a in annotation.history])
 
 def main(argv=sys.argv):
